@@ -1,28 +1,23 @@
 #!/usr/bin/env janet
 
-# Copyright 2021 John Gabriele.
+# Copyright 2021--2022 John Gabriele.
+# See LICENSE.txt file for license.
+
+# This script downloads the pkgs.janet file from the
+# Janet package repository (git repo), then downloads
+# descriptions of all the packages listed therein,
+# creating an html page containing all package names
+# with their descriptions.
 #
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
+# Usage:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+#     gen-janet-pkgs-page.janet > index.html
 
 (import janet-html)
 
 (defn shell-out
+  ``The `cmd` arg should be a list of strings, just like
+  what you pass to `os/spawn`.``
   [cmd]
   (let [x (os/spawn cmd :p {:out :pipe})
         s (:read (x :out) :all)]
@@ -32,7 +27,8 @@
 # For each project we'll need to get its project.janet file
 # to extract name, author, description, url, and license.
 #
-# If it's at sourcehut, given a git repo url get the raw project.janet:
+# If it's at sourcehut, given a git repo url, get the raw
+# project.janet like so:
 #
 #     https://git.sr.ht/~bakpakin/temple
 #     https://git.sr.ht/~bakpakin/temple/blob/master/project.janet
@@ -64,18 +60,20 @@
         prefix (string/slice git-url 0 -5)]
     (string prefix suffix)))
 
+
 (defn get-and-parse-janet-project-file
-  "Returns the defproject struct."
+  ``Returns the defproject struct for a given project name.
+  Maintains a "./project-janet-files" directory where it caches
+  downloaded "project.janet" files.``
   [name url]
-  (def dirnm "project-janet-files") # where we'll cache these proj files
-  (if-not (os/stat dirnm)
-    (do
-      (print "Making " dirnm "...")
-      (os/mkdir dirnm)))
+  (def dirnm "project-janet-files")
+  (when (not (os/stat dirnm))
+    (print dirnm " directory not found. Making it...")
+    (os/mkdir dirnm))
   (os/cd dirnm)
   (def proj-fnm (string name ".project.janet"))
   (when (not (os/stat proj-fnm))
-    (print "Can't find " proj-fnm ". Getting it...")
+    (print "Can't find " proj-fnm ". Fetching it...")
     (cond
       (string/has-prefix? "https://git.sr.ht/" url)
       (shell-out ["wget" (sourcehut-raw-project-file-url url)])
@@ -90,34 +88,49 @@
           (os/exit 1)))
       
       (os/rename "project.janet" proj-fnm))
-  (def prj-struct (struct ;(drop 1 (parse (slurp proj-fnm)))))
+  (def prj-struct (struct ;(drop 1
+                                 (parse (slurp proj-fnm)))))
   (os/cd "..")
   prj-struct)
 
-(defn make-list-item
-  `Returns a data structure suitable for use by janet-html/html.`
+
+(defn make-table-row
+  ``Given a project-name/git-url pair, returns a data structure
+  representing one html table row, suitable for use by `janet-html/html`.``
   [itm]
   #(pp itm) # debug
   (let [name    (string (get itm 0))
         git-url (get itm 1)
         proj    (get-and-parse-janet-project-file name git-url)]
-    [:li [:a {:href (proj :url)} name] " - " (proj :description)]))
+    [:tr [:td [:a {:href (proj :url)} name]]
+         [:td (proj :description)]]))
 
 #------------------------------------------------------------------
 (defn main
   [&]
-  (if-not (os/stat "pkgs.janet")
+  (unless (os/stat "pkgs.janet")
     (shell-out
-     ["wget" "https://raw.githubusercontent.com/janet-lang/pkgs/master/pkgs.janet"]))
+     ["wget"
+      "https://raw.githubusercontent.com/janet-lang/pkgs/master/pkgs.janet"]))
+  # Array of pairs of package name symbol and git repo url.
   (def pkgs (pairs (eval (get (parse (slurp "pkgs.janet"))
                               2))))
   (sort-by |(get $ 0) pkgs)
-  #(pp pkgs)
+  #(pp pkgs) # debug
+  (def css-content ``table, th, td {
+  border: 2px solid #076591;
+  border-collapse: collapse;
+  padding: 10px;
+}
+``)
   (def out-html (janet-html/html
-                 [:html [:head [:title "Janet Package Directory"]]
+                 [:html
+                    [:head
+                       [:title "Janet Package Directory"]
+                     [:style css-content]]
                   [:body
                      [:h1 "Janet Package Directory"]
-                   [:ul
-                      (map make-list-item pkgs)]]]))
+                   [:table
+                      (map make-table-row pkgs)]]]))
 
   (print out-html))
