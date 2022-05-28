@@ -105,10 +105,33 @@
     [:tr [:td [:a {:href (proj :url)} name]]
          [:td (proj :description)]]))
 
+
+(def css-content ``
+  h1, h2, th {
+    font-family: sans-serif;
+  }
+  table, th, td {
+    border: 1px solid #ccc;
+    border-collapse: collapse;
+    padding: 10px;
+  }
+  thead {
+    background-color: #09a5b8;
+    color: #fff;
+  }
+  tbody tr:nth-child(odd) {
+    background-color: #fff;
+  }
+  tbody tr:nth-child(even) {
+    background-color: #eee;
+}
+``)
+
+
 #------------------------------------------------------------------
 (defn main
   [&]
-  (unless (os/stat "pkgs.janet")
+  (when (not (os/stat "pkgs.janet"))
     (shell-out
      ["wget"
       "https://raw.githubusercontent.com/janet-lang/pkgs/master/pkgs.janet"]))
@@ -117,12 +140,6 @@
                               2))))
   (sort-by |(get $ 0) pkgs)
   #(pp pkgs) # debug
-  (def css-content ``table, th, td {
-  border: 2px solid #076591;
-  border-collapse: collapse;
-  padding: 10px;
-}
-``)
   (def out-html (janet-html/html
                  [:html
                     [:head
@@ -131,6 +148,7 @@
                   [:body
                      [:h1 "Janet Package Directory"]
                    [:table
+                      [:thead [:tr [:th "Package"] [:th "Description"]]]
                       (map make-table-row pkgs)]]]))
 
   (print out-html))
