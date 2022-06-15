@@ -163,10 +163,13 @@
   (def out-html (janet-html/html
                  [:html
                     [:head
-                       [:title "Janet Package Directory"]
+                     [:title "Janet Package Directory"]
                      [:style css-content]]
                   [:body
                      [:h1 "Janet Package Directory"]
+                   [:p "Generated from the "
+                    [:a {:href "https://github.com/janet-lang/pkgs"}
+                     "Janet package listing"] "."]
                    [:table
                       [:thead [:tr [:th "Package"] [:th "Description"]]]
                       (map make-table-row pkgs)]]]))
