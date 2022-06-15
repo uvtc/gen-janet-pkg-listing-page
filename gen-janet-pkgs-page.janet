@@ -86,12 +86,12 @@
   [name url]
   (def dirnm "project-janet-files")
   (when (not (os/stat dirnm))
-    (print dirnm " directory not found. Making it...")
+    (eprint dirnm " directory not found. Making it...")
     (os/mkdir dirnm))
   (os/cd dirnm)
   (def proj-fnm (string name ".project.janet"))
   (when (not (os/stat proj-fnm))
-    (print "Can't find " proj-fnm ". Fetching it...")
+    (eprint "Can't find " proj-fnm ". Fetching it...")
     (cond
       (string/has-prefix? "https://git.sr.ht/" url)
       (shell-out ["wget" (sourcehut-raw-project-file-url url)])
@@ -102,7 +102,7 @@
       (string/has-prefix? "https://gitlab.com/" url)
       (shell-out ["wget" (gitlab-raw-project-file-url url)])
 
-      (do (print name ". Not sourcehut, github, nor gitlab. Bailing out.")
+      (do (eprint name ". Not sourcehut, github, nor gitlab. Bailing out.")
           (os/exit 1)))
 
     (os/rename "project.janet" proj-fnm))
