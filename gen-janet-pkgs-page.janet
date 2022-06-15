@@ -15,6 +15,24 @@
 
 (import janet-html)
 
+# For getting the 'declare-project out of a project.janet file.
+# bakpakin wrote, then added this for the next Janet release.
+# Need it here until the next Janet release.
+(defn parse-all
+  ``Parse a string and return all parsed values as a tuple. For complex
+  parsing, such as for a repl with error handling, use the `parser` api.``
+  [str]
+  (let [p   (parser/new)
+        ret @[]]
+    (parser/consume p str)
+    (parser/eof p)
+    (while (parser/has-more p)
+      (array/push ret (parser/produce p)))
+    (if (= :error (parser/status p))
+        (error (parser/error p))
+        ret)))
+
+
 (defn shell-out
   ``The `cmd` arg should be a list of strings, just like
   what you pass to `os/spawn`.``
@@ -80,16 +98,19 @@
 
       (string/has-prefix? "https://github.com/" url)
       (shell-out ["wget" (github-raw-project-file-url url)])
-      
+
       (string/has-prefix? "https://gitlab.com/" url)
       (shell-out ["wget" (gitlab-raw-project-file-url url)])
 
       (do (print name ". Not sourcehut, github, nor gitlab. Bailing out.")
           (os/exit 1)))
-      
-      (os/rename "project.janet" proj-fnm))
-  (def prj-struct (struct ;(drop 1
-                                 (parse (slurp proj-fnm)))))
+
+    (os/rename "project.janet" proj-fnm))
+
+  (def prj-struct
+    (struct ;(drop 1
+                   (find |(match $ ['declare-project & rest] rest)
+                         (parse-all (slurp proj-fnm))))))
   (os/cd "..")
   prj-struct)
 
@@ -126,7 +147,6 @@
     background-color: #eee;
 }
 ``)
-
 
 #------------------------------------------------------------------
 (defn main
